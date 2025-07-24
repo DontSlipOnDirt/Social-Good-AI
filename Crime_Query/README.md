@@ -10,7 +10,7 @@ Below are sample screenshots showing key parts of the app:
 ![assaults_punjab](./assets/assaults_punjab.png)
 *Assaults in Punjab*
 
-![burglary_mumbai](.assets/burglary_mumbai.png)
+![burglary_mumbai](./assets/burglary_mumbai.png)
 *Burglary in Mumbai*
 
 ![theft_tamilnadu_complaitby_sanjayverma](./assets/theft_tamilnadu_complaitby_sanjayverma.png)
