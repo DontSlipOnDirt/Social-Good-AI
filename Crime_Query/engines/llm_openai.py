@@ -4,6 +4,9 @@ from langchain.chains import LLMChain
 import json
 import re
 import os
+from dotenv import load_dotenv
+
+load_dotenv()
 
 def parse_query_with_openai(user_query: str, model_name: str = "gpt-3.5-turbo"): # type: ignore
     """
