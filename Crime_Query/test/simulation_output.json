@@ -1,0 +1,24 @@
+[
+  {
+    "id": 3,
+    "date": "2023-02-10",
+    "time": "04:15",
+    "location": "Borivali, Mumbai, Maharashtra",
+    "crime_category": "Burglary (\u0938\u0947\u0902\u0927\u092e\u093e\u0930\u0940)",
+    "crime_subcategory": "Residential burglary",
+    "description": "Apartment broken into while residents were away",
+    "reported_by": "Resident",
+    "status": "Under Investigation"
+  },
+  {
+    "id": 10,
+    "date": "2023-02-22",
+    "time": "07:45",
+    "location": "Thane, Mumbai, Maharashtra",
+    "crime_category": "Theft (\u091a\u094b\u0930\u0940)",
+    "crime_subcategory": "Two-wheeler theft",
+    "description": "Motorcycle stolen from parking lot",
+    "reported_by": "Sanjay Verma",
+    "status": "Under Investigation"
+  }
+]
