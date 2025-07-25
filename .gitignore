@@ -1,4 +1,5 @@
 .env
+test.py
 
 # uv initialization files
 .python-version
