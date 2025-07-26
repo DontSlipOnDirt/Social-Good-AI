@@ -71,23 +71,111 @@ def execute_sql_query(query, conn):
 # Extract SQL from LLM response
 def extract_sql_from_response(response):
     """Extract SQL query from LLM response"""
+    # Clean the response
+    response = response.strip()
+    
     # Look for SQL in code blocks first
-    sql_match = re.search(r'```sql\s*(.*?)\s*```', response, re.DOTALL | re.IGNORECASE)
+    sql_match = re.search(r'```(?:sql)?\s*(.*?)\s*```', response, re.DOTALL | re.IGNORECASE)
     if sql_match:
-        return sql_match.group(1).strip()
+        sql = sql_match.group(1).strip()
+        if sql and 'SELECT' in sql.upper():
+            return clean_sql_query(sql)
     
-    # Look for SQL in regular code blocks
-    sql_match = re.search(r'```\s*(.*?)\s*```', response, re.DOTALL)
-    if sql_match:
-        return sql_match.group(1).strip()
+    # Split by common separators that indicate end of SQL
+    separators = [
+        'Explanation:',
+        'This query',
+        'The query',
+        'Note:',
+        'Here\'s how',
+        'Breakdown:',
+        '\n\n',  # Double newline often separates SQL from explanation
+    ]
     
-    # Look for SELECT statements
-    sql_match = re.search(r'(SELECT.*?;?)', response, re.DOTALL | re.IGNORECASE)
-    if sql_match:
-        return sql_match.group(1).strip()
+    # Find the first separator and extract everything before it
+    sql_part = response
+    for sep in separators:
+        if sep in response:
+            sql_part = response.split(sep)[0].strip()
+            break
     
-    # Return the entire response if no specific SQL found
-    return response.strip()
+    # Look for SELECT statements in the cleaned part
+    sql_patterns = [
+        r'(SELECT\s+.*?;)',  # SELECT with semicolon
+        r'(SELECT\s+.*?(?=\n[A-Z][a-z]))',  # SELECT until next sentence starts
+        r'(SELECT\s+.*)',  # Any SELECT statement
+    ]
+    
+    for pattern in sql_patterns:
+        sql_match = re.search(pattern, sql_part, re.DOTALL | re.IGNORECASE)
+        if sql_match:
+            sql = sql_match.group(1).strip()
+            # Basic validation - must contain FROM and be reasonable length
+            if 'FROM' in sql.upper() and len(sql) < 1000:  # Prevent huge responses
+                return clean_sql_query(sql)
+    
+    # If we still haven't found it, try line-by-line extraction
+    lines = response.split('\n')
+    sql_lines = []
+    collecting = False
+    
+    for line in lines:
+        line = line.strip()
+        
+        # Start collecting when we see SELECT
+        if not collecting and 'SELECT' in line.upper():
+            collecting = True
+            sql_lines.append(line)
+        elif collecting:
+            # Stop collecting if we hit explanation keywords
+            if any(keyword in line for keyword in ['Explanation:', 'This query', 'The query', 'Note:', 'Here\'s how', 'Breakdown:']):
+                break
+            # Stop if line looks like explanation (starts with "The" followed by explanation)
+            elif line.startswith('The ') and any(word in line for word in ['function', 'clause', 'operator', 'query']):
+                break
+            # Continue collecting if it's SQL-like
+            elif line and (any(keyword in line.upper() for keyword in ['FROM', 'WHERE', 'GROUP BY', 'ORDER BY', 'LIMIT', 'JOIN']) or line.endswith(';')):
+                sql_lines.append(line)
+                # Stop after semicolon
+                if line.endswith(';'):
+                    break
+            # Stop if empty line after we've collected some SQL
+            elif not line and sql_lines:
+                break
+            # Stop if line doesn't look like SQL
+            elif line and not any(c in line for c in ['SELECT', 'FROM', 'WHERE', 'GROUP', 'ORDER', 'LIMIT', '(', ')', ',', '*']):
+                break
+    
+    if sql_lines:
+        sql = ' '.join(sql_lines)
+        if 'FROM' in sql.upper():
+            return clean_sql_query(sql)
+    
+    # Last resort - return first line that looks like complete SQL
+    lines = response.split('\n')
+    for i, line in enumerate(lines):
+        line = line.strip()
+        if 'SELECT' in line.upper() and 'FROM' in line.upper():
+            return clean_sql_query(line)
+    
+    # If nothing found, return a default error query
+    return "SELECT 'Error: Could not extract valid SQL query from model response' as error_message;"
+
+def clean_sql_query(sql):
+    """Clean and format SQL query"""
+    # Remove extra whitespace
+    sql = ' '.join(sql.split())
+    
+    # Ensure it ends with semicolon
+    if not sql.endswith(';'):
+        sql += ';'
+    
+    # Fix common formatting issues
+    sql = sql.replace(' ,', ',')  # Remove space before comma
+    sql = sql.replace('( ', '(')   # Remove space after opening paren
+    sql = sql.replace(' )', ')')   # Remove space before closing paren
+    
+    return sql
 
 # Sidebar for configuration
 with st.sidebar:
@@ -333,7 +421,7 @@ SQL Query:"""
                         do_sample=True,
                         pad_token_id=st.session_state.tokenizer.eos_token_id,
                         num_return_sequences=1,
-                        # early_stopping=True
+                        early_stopping=True
                     )
                 
                 # Decode response
